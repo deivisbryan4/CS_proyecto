@@ -18,6 +18,18 @@ using System.Windows.Forms;
 
 namespace Juego_Aviones
 {
+    //************ EJECUCION DEL PROGRAMA *************//
+    internal static class Program
+    {
+        [STAThread]
+        private static void Main()
+        {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            Application.Run(new Form1());
+        }
+    }
+
     public partial class Form1 : Form
     {
         //************ VARIABLES GLOBALES *************
@@ -556,6 +568,18 @@ namespace Juego_Aviones
         public Form1()
         {
             InitializeComponent();
+        }
+
+        private void InitializeComponent()
+        {
+            SuspendLayout();
+            ClientSize = new Size(320, 460);
+            StartPosition = FormStartPosition.CenterScreen;
+            Text = "JUEGO DE AVIONES";
+            KeyPreview = true;
+            DoubleBuffered = true;
+            Load += new EventHandler(Form1_Load);
+            ResumeLayout(false);
         }
 
         private void Form1_Load(object sender, EventArgs e)
