@@ -37,11 +37,24 @@ namespace Juego_Aviones
         PictureBox naveRival = new PictureBox();
         PictureBox contiene = new PictureBox();
         System.Windows.Forms.Timer tiempo;
+        System.Windows.Forms.Timer obstaculosTimer;
         int Dispara = 0;
         bool flag = false;
         float angulo = 0;
         System.Windows.Forms.Label label1 =new System.Windows.Forms.Label();
         System.Windows.Forms.Label label2 = new System.Windows.Forms.Label();
+        System.Windows.Forms.Label labelProgreso = new System.Windows.Forms.Label();
+        readonly List<Color> escenarios = new List<Color>
+        {
+            Color.AliceBlue,
+            Color.DarkSlateGray,
+            Color.MidnightBlue,
+            Color.Black
+        };
+        readonly List<PictureBox> asteroides = new List<PictureBox>();
+        int nivelActual = 1;
+        int puntaje = 0;
+        int framesEscenario = 0;
 
         //************ DIAGRAMAR DEL MISIL ************//
         public void CrearMisil(int AngRotar, Color pintar, string nombre, int x, int y)
@@ -143,13 +156,16 @@ namespace Juego_Aviones
                         {
                             ((PictureBox)c).Dispose();
                             naveRival.Tag = int.Parse(naveRival.Tag.ToString()) - 10;
+                            puntaje += 10;
                         }
                         else
                         {
                             ((PictureBox)c).Dispose();
                             naveRival.Tag = int.Parse(naveRival.Tag.ToString()) - 1;
+                            puntaje += 5;
                         }
                         label1.Text = "Vida del Rival : " + naveRival.Tag.ToString();
+                        ActualizarProgreso();
                         //tiempo.Stop();
                     }
                     else if (int.Parse(naveRival.Tag.ToString()) <= 0)
@@ -169,6 +185,25 @@ namespace Juego_Aviones
                         tiempo.Stop();
                     }
 
+                    // IMPACTO DE MISIL CON ASTEROIDES
+                    if (nombre == "Misil")
+                    {
+                        Rectangle misilRect = new Rectangle(((PictureBox)c).Location, ((PictureBox)c).Size);
+                        foreach (PictureBox ast in asteroides.ToList())
+                        {
+                            Rectangle astRect = new Rectangle(ast.Location, ast.Size);
+                            if (misilRect.IntersectsWith(astRect))
+                            {
+                                ((PictureBox)c).Dispose();
+                                asteroides.Remove(ast);
+                                ast.Dispose();
+                                puntaje += 3;
+                                ActualizarProgreso();
+                                break;
+                            }
+                        }
+                    }
+
                     // ACTIVIDAD DE IMPACTO CON MI NAVE
                     if (X2 < X1 && X1 + W1 < X2 + W2 && Y2 < Y1 && Y1 + H1 < Y2 + H2 && nombre == "Rival")
                     {
@@ -183,6 +218,7 @@ namespace Juego_Aviones
                             navex.Tag = int.Parse(navex.Tag.ToString()) - 1;
                         }
                         label2.Text = "Mi Nave : " + navex.Tag.ToString();
+                        ActualizarProgreso();
                     }
                     else if (int.Parse(navex.Tag.ToString()) <= 0)
                     {
@@ -538,14 +574,27 @@ namespace Juego_Aviones
             this.Text = "JUEGO DE AVIONES";
             label1.Text = "Mi Rival";
             label2.Text = "Mi Avion";
+            labelProgreso.Text = "Nivel 1 - Puntaje 0";
             this.KeyDown += new KeyEventHandler(ActividadTecla);
             //*****************************************************//
             contiene.Location = new Point(0, 0);
-            contiene.BackColor = Color.AliceBlue;
+            contiene.BackColor = escenarios[0];
             contiene.Size = new Size(300, 420);
             contiene.Dock = DockStyle.Fill;
             Controls.Add(contiene);
             contiene.Visible = true;
+            label1.Location = new Point(10, 10);
+            label1.AutoSize = true;
+            label1.BackColor = Color.Transparent;
+            contiene.Controls.Add(label1);
+            label2.Location = new Point(10, 30);
+            label2.AutoSize = true;
+            label2.BackColor = Color.Transparent;
+            contiene.Controls.Add(label2);
+            labelProgreso.Location = new Point(10, 50);
+            labelProgreso.AutoSize = true;
+            labelProgreso.BackColor = Color.Transparent;
+            contiene.Controls.Add(labelProgreso);
             //******Contenido del formulario*******//
             Random r = new Random();
             int aleatY = r.Next(250, 330);
@@ -563,6 +612,85 @@ namespace Juego_Aviones
             tiempo.Enabled = true;
             tiempo.Tick += new EventHandler(ImpactarTick);
 
+            obstaculosTimer = new System.Windows.Forms.Timer();
+            obstaculosTimer.Interval = 20;
+            obstaculosTimer.Enabled = true;
+            obstaculosTimer.Tick += new EventHandler(MoverAsteroidesTick);
+
+            ActualizarProgreso();
+        }
+
+        private void MoverAsteroidesTick(object sender, EventArgs e)
+        {
+            framesEscenario++;
+            if (framesEscenario % 40 == 0 && asteroides.Count < nivelActual + 3)
+            {
+                CrearAsteroide();
+            }
+
+            foreach (PictureBox ast in asteroides.ToList())
+            {
+                ast.Top += 2 + nivelActual;
+                if (ast.Top > contiene.Height)
+                {
+                    asteroides.Remove(ast);
+                    ast.Dispose();
+                    continue;
+                }
+
+                Rectangle naveRect = new Rectangle(navex.Location, navex.Size);
+                Rectangle astRect = new Rectangle(ast.Location, ast.Size);
+                if (naveRect.IntersectsWith(astRect))
+                {
+                    asteroides.Remove(ast);
+                    ast.Dispose();
+                    navex.Tag = int.Parse(navex.Tag.ToString()) - 5;
+                    label2.Text = "Mi Nave : " + navex.Tag.ToString();
+                    ActualizarProgreso();
+                }
+            }
+
+            CambiarEscenarioSiEsNecesario();
+        }
+
+        private void CambiarEscenarioSiEsNecesario()
+        {
+            int nuevoNivel = 1 + (puntaje / 30);
+            if (nuevoNivel != nivelActual && nuevoNivel - 1 < escenarios.Count)
+            {
+                nivelActual = nuevoNivel;
+                contiene.BackColor = escenarios[nivelActual - 1];
+                ActualizarProgreso();
+            }
+        }
+
+        private void CrearAsteroide()
+        {
+            Random r = new Random();
+            int ancho = r.Next(15, 30);
+            int alto = r.Next(15, 30);
+            PictureBox asteroide = new PictureBox();
+            asteroide.Size = new Size(ancho, alto);
+            asteroide.BackColor = Color.Transparent;
+            asteroide.Tag = "Asteroide" + asteroides.Count;
+            asteroide.Location = new Point(r.Next(0, Math.Max(1, contiene.Width - ancho)), -alto);
+
+            Bitmap imagen = new Bitmap(ancho, alto);
+            Graphics g = Graphics.FromImage(imagen);
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.FillEllipse(Brushes.Gray, 0, 0, ancho, alto);
+            g.FillEllipse(Brushes.DimGray, ancho / 4, alto / 4, ancho / 2, alto / 2);
+            g.Dispose();
+            asteroide.Image = imagen;
+
+            contiene.Controls.Add(asteroide);
+            asteroides.Add(asteroide);
+            asteroide.BringToFront();
+        }
+
+        private void ActualizarProgreso()
+        {
+            labelProgreso.Text = $"Nivel {nivelActual} - Puntaje {puntaje}";
         }
         //****ARGUMENTOS GENERADOS POR EL PROGRAMA*******//
         public Form1()
