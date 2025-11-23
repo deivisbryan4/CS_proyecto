@@ -38,6 +38,7 @@ namespace Juego_Aviones
         PictureBox contiene = new PictureBox();
         System.Windows.Forms.Timer tiempo;
         System.Windows.Forms.Timer obstaculosTimer;
+        readonly Random random = new Random();
         int Dispara = 0;
         bool flag = false;
         float angulo = 0;
@@ -52,9 +53,12 @@ namespace Juego_Aviones
             Color.Black
         };
         readonly List<PictureBox> asteroides = new List<PictureBox>();
+        readonly List<PictureBox> enemigos = new List<PictureBox>();
+        readonly List<PictureBox> disparosEnemigos = new List<PictureBox>();
         int nivelActual = 1;
         int puntaje = 0;
         int framesEscenario = 0;
+        int framesEnemigos = 0;
 
         //************ DIAGRAMAR DEL MISIL ************//
         public void CrearMisil(int AngRotar, Color pintar, string nombre, int x, int y)
@@ -198,6 +202,20 @@ namespace Juego_Aviones
                                 asteroides.Remove(ast);
                                 ast.Dispose();
                                 puntaje += 3;
+                                ActualizarProgreso();
+                                break;
+                            }
+                        }
+
+                        foreach (PictureBox enemigo in enemigos.ToList())
+                        {
+                            Rectangle enemigoRect = new Rectangle(enemigo.Location, enemigo.Size);
+                            if (misilRect.IntersectsWith(enemigoRect))
+                            {
+                                ((PictureBox)c).Dispose();
+                                enemigos.Remove(enemigo);
+                                enemigo.Dispose();
+                                puntaje += 8;
                                 ActualizarProgreso();
                                 break;
                             }
@@ -493,56 +511,64 @@ namespace Juego_Aviones
                     {
                         if (contiene.Left < navex.Left) // PARAMETROS DE LIMITE
                             navex.Left -= 10;
-                        NaveCorre(navex, 1, 0);
+                        angulo = -45;
+                        NaveCorre(navex, angulo, 0);
                         break;
                     }
                 case 38: // flecha hacia arriba
                     {
                         if (contiene.Top < navex.Top)
                             navex.Top -= 10;
-                        NaveCorre(navex, 0, 1);
+                        angulo = 0;
+                        NaveCorre(navex, angulo, 1);
                         break;
                     }
                 case 39: // flecha hacia la derecha
                     {
                         if (contiene.Right > navex.Right)
                             navex.Left += 10;
-                        NaveCorre(navex, 1, 0);
+                        angulo = 45;
+                        NaveCorre(navex, angulo, 0);
                         break;
                     }
                 case 40: // flecha hacia abajo
                     {
                         if (contiene.Bottom > navex.Bottom)
                             navex.Top += 10;
-                        NaveCorre(navex, 0, 1);
+                        angulo = 0;
+                        NaveCorre(navex, angulo, 1);
                         break;
                     }
                 case 87: // W
                     {
                         if (contiene.Top < navex.Top)
                             navex.Top -= 10;
-                        NaveCorre(navex, 0, 1);
+                        angulo = 0;
+                        NaveCorre(navex, angulo, 1);
                         break;
                     }
                 case 83: // S
                     {
                         if (contiene.Bottom > navex.Bottom)
                             navex.Top += 10;
-                        NaveCorre(navex, 0, 1);
+                        angulo = 0;
+                        NaveCorre(navex, angulo, 1);
                         break;
                     }
                 case 65: // A
                     {
                         if (contiene.Left < navex.Left) // PARAMETROS DE LIMITE
                             navex.Left -= 10;
-                        NaveCorre(navex, 1, 0);
+                        angulo = -45;
+                        NaveCorre(navex, angulo, 0);
                         break;
                     }
                 case 68: // D
                     {
                         if (contiene.Right > navex.Right)
                             navex.Left += 10;
-                        NaveCorre(navex, 1, 0);
+                        angulo = 45;
+                        NaveCorre(navex, angulo, 0);
                         break;
                     }
                 case 13: // Enter - disparo
@@ -579,6 +605,7 @@ namespace Juego_Aviones
             //*****************************************************//
             contiene.Location = new Point(0, 0);
             contiene.BackColor = escenarios[0];
+            contiene.BackgroundImage = CrearFondo(nivelActual);
             contiene.Size = new Size(300, 420);
             contiene.Dock = DockStyle.Fill;
             Controls.Add(contiene);
@@ -628,6 +655,17 @@ namespace Juego_Aviones
                 CrearAsteroide();
             }
 
+            framesEnemigos++;
+            if (framesEnemigos % 60 == 0 && enemigos.Count < nivelActual + 4)
+            {
+                CrearEnemigo();
+            }
+
+            if (framesEnemigos % 45 == 0)
+            {
+                DispararEnemigos();
+            }
+
             foreach (PictureBox ast in asteroides.ToList())
             {
                 ast.Top += 2 + nivelActual;
@@ -650,6 +688,9 @@ namespace Juego_Aviones
                 }
             }
 
+            MoverEnemigos();
+            MoverDisparosEnemigos();
+
             CambiarEscenarioSiEsNecesario();
         }
 
@@ -660,20 +701,20 @@ namespace Juego_Aviones
             {
                 nivelActual = nuevoNivel;
                 contiene.BackColor = escenarios[nivelActual - 1];
+                contiene.BackgroundImage = CrearFondo(nivelActual);
                 ActualizarProgreso();
             }
         }
 
         private void CrearAsteroide()
         {
-            Random r = new Random();
-            int ancho = r.Next(15, 30);
-            int alto = r.Next(15, 30);
+            int ancho = random.Next(15, 30);
+            int alto = random.Next(15, 30);
             PictureBox asteroide = new PictureBox();
             asteroide.Size = new Size(ancho, alto);
             asteroide.BackColor = Color.Transparent;
             asteroide.Tag = "Asteroide" + asteroides.Count;
-            asteroide.Location = new Point(r.Next(0, Math.Max(1, contiene.Width - ancho)), -alto);
+            asteroide.Location = new Point(random.Next(0, Math.Max(1, contiene.Width - ancho)), -alto);
 
             Bitmap imagen = new Bitmap(ancho, alto);
             Graphics g = Graphics.FromImage(imagen);
@@ -686,6 +727,121 @@ namespace Juego_Aviones
             contiene.Controls.Add(asteroide);
             asteroides.Add(asteroide);
             asteroide.BringToFront();
+        }
+
+        private void CrearEnemigo()
+        {
+            int ancho = 26;
+            int alto = 18;
+            PictureBox enemigo = new PictureBox();
+            enemigo.Size = new Size(ancho, alto);
+            enemigo.BackColor = Color.Transparent;
+            enemigo.Tag = "Enemigo";
+            enemigo.Location = new Point(random.Next(10, Math.Max(20, contiene.Width - ancho - 10)), -alto);
+
+            Bitmap imagen = new Bitmap(ancho, alto);
+            Graphics g = Graphics.FromImage(imagen);
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.FillPolygon(Brushes.DarkRed, new[] { new Point(ancho / 2, 0), new Point(ancho, alto), new Point(0, alto) });
+            g.FillEllipse(Brushes.OrangeRed, ancho / 4, alto / 3, ancho / 2, alto / 2);
+            g.Dispose();
+            enemigo.Image = imagen;
+
+            contiene.Controls.Add(enemigo);
+            enemigos.Add(enemigo);
+            enemigo.BringToFront();
+        }
+
+        private void MoverEnemigos()
+        {
+            foreach (PictureBox enemigo in enemigos.ToList())
+            {
+                double fase = (framesEnemigos + enemigo.Location.X) * 0.1;
+                int nuevoX = enemigo.Location.X + (int)(Math.Sin(fase) * 4);
+                nuevoX = Math.Max(0, Math.Min(contiene.Width - enemigo.Width, nuevoX));
+                enemigo.Location = new Point(nuevoX, enemigo.Location.Y + 2 + nivelActual);
+
+                Rectangle naveRect = new Rectangle(navex.Location, navex.Size);
+                Rectangle enemigoRect = new Rectangle(enemigo.Location, enemigo.Size);
+                if (naveRect.IntersectsWith(enemigoRect))
+                {
+                    enemigos.Remove(enemigo);
+                    enemigo.Dispose();
+                    navex.Tag = int.Parse(navex.Tag.ToString()) - 8;
+                    label2.Text = "Mi Nave : " + navex.Tag.ToString();
+                    ActualizarProgreso();
+                    continue;
+                }
+
+                if (enemigo.Location.Y > contiene.Height)
+                {
+                    enemigos.Remove(enemigo);
+                    enemigo.Dispose();
+                }
+            }
+        }
+
+        private void DispararEnemigos()
+        {
+            foreach (PictureBox enemigo in enemigos)
+            {
+                PictureBox disparo = new PictureBox();
+                disparo.Size = new Size(6, 12);
+                disparo.BackColor = Color.Yellow;
+                disparo.Tag = "DisparoEnemigo";
+                disparo.Location = new Point(enemigo.Location.X + (enemigo.Width / 2) - 3, enemigo.Location.Y + enemigo.Height);
+                contiene.Controls.Add(disparo);
+                disparosEnemigos.Add(disparo);
+                disparo.BringToFront();
+            }
+        }
+
+        private void MoverDisparosEnemigos()
+        {
+            foreach (PictureBox disparo in disparosEnemigos.ToList())
+            {
+                disparo.Top += 6 + nivelActual;
+                if (disparo.Top > contiene.Height)
+                {
+                    disparosEnemigos.Remove(disparo);
+                    disparo.Dispose();
+                    continue;
+                }
+
+                Rectangle naveRect = new Rectangle(navex.Location, navex.Size);
+                Rectangle disparoRect = new Rectangle(disparo.Location, disparo.Size);
+                if (naveRect.IntersectsWith(disparoRect))
+                {
+                    disparosEnemigos.Remove(disparo);
+                    disparo.Dispose();
+                    navex.Tag = int.Parse(navex.Tag.ToString()) - 5;
+                    label2.Text = "Mi Nave : " + navex.Tag.ToString();
+                    ActualizarProgreso();
+                }
+            }
+        }
+
+        private Image CrearFondo(int nivel)
+        {
+            Bitmap fondo = new Bitmap(contiene.Width > 0 ? contiene.Width : 320, contiene.Height > 0 ? contiene.Height : 460);
+            Color baseColor = escenarios[Math.Max(0, Math.Min(escenarios.Count - 1, nivel - 1))];
+            using (Graphics g = Graphics.FromImage(fondo))
+            {
+                using (LinearGradientBrush brush = new LinearGradientBrush(new Rectangle(0, 0, fondo.Width, fondo.Height),
+                           ControlPaint.Light(baseColor), ControlPaint.Dark(baseColor), LinearGradientMode.Vertical))
+                {
+                    g.FillRectangle(brush, 0, 0, fondo.Width, fondo.Height);
+                }
+
+                for (int i = 0; i < 35 + (nivel * 5); i++)
+                {
+                    int x = random.Next(0, fondo.Width);
+                    int y = random.Next(0, fondo.Height);
+                    g.FillEllipse(Brushes.WhiteSmoke, x, y, 2, 2);
+                }
+            }
+
+            return fondo;
         }
 
         private void ActualizarProgreso()
