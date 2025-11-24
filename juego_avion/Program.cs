@@ -36,6 +36,8 @@ namespace Juego_Aviones
         PictureBox navex = new PictureBox();
         PictureBox naveRival = new PictureBox();
         PictureBox contiene = new PictureBox();
+        Panel panelEstado = new Panel();
+        ProgressBar barraVida = new ProgressBar();
         System.Windows.Forms.Timer tiempo;
         System.Windows.Forms.Timer asteroideTimer;
         int Dispara = 0;
@@ -43,8 +45,10 @@ namespace Juego_Aviones
         float angulo = 0;
         System.Windows.Forms.Label label1 =new System.Windows.Forms.Label();
         System.Windows.Forms.Label label2 = new System.Windows.Forms.Label();
+        System.Windows.Forms.Label tituloVida = new System.Windows.Forms.Label();
         List<PictureBox> asteroides = new List<PictureBox>();
         Random generador = new Random();
+        const int vidaMaximaJugador = 100;
 
         //************ DIAGRAMAR DEL MISIL ************//
         public void CrearMisil(int AngRotar, Color pintar, string nombre, int x, int y)
@@ -185,7 +189,7 @@ namespace Juego_Aviones
                             ((PictureBox)c).Dispose();
                             navex.Tag = int.Parse(navex.Tag.ToString()) - 1;
                         }
-                        label2.Text = "Mi Nave : " + navex.Tag.ToString();
+                        ActualizarVidaJugador();
                     }
                     else if (int.Parse(navex.Tag.ToString()) <= 0)
                     {
@@ -469,6 +473,17 @@ namespace Juego_Aviones
             return fondo;
         }
 
+        private void ActualizarVidaJugador()
+        {
+            if (navex.IsDisposed)
+                return;
+
+            int vidaActual = Math.Max(0, Math.Min(vidaMaximaJugador, int.Parse(navex.Tag.ToString())));
+            navex.Tag = vidaActual;
+            barraVida.Value = Math.Max(barraVida.Minimum, Math.Min(barraVida.Maximum, vidaActual));
+            label2.Text = $"Vida : {vidaActual}";
+        }
+
         private PictureBox CrearAsteroide()
         {
             PictureBox asteroide = new PictureBox();
@@ -542,10 +557,22 @@ namespace Juego_Aviones
                     int vidaActual = int.Parse(navex.Tag.ToString());
                     vidaActual = Math.Max(0, vidaActual - 2);
                     navex.Tag = vidaActual;
-                    label2.Text = "Mi Nave : " + vidaActual.ToString();
+                    ActualizarVidaJugador();
                     if (vidaActual <= 0)
                     {
                         navex.Dispose();
+                    }
+                }
+
+                foreach (PictureBox bala in contiene.Controls.OfType<PictureBox>().Where(p => p.Tag != null && p.Tag.ToString() == "Misil").ToList())
+                {
+                    if (bala.Bounds.IntersectsWith(asteroide.Bounds))
+                    {
+                        bala.Dispose();
+                        asteroides.Remove(asteroide);
+                        asteroide.Dispose();
+                        CrearAsteroide();
+                        break;
                     }
                 }
             }
@@ -641,27 +668,55 @@ namespace Juego_Aviones
             this.Height = 450;
             this.Text = "JUEGO DE AVIONES";
             label1.Text = "Mi Rival";
-            label2.Text = "Mi Avion";
+            label2.Text = "Vida : 0";
             this.KeyDown += new KeyEventHandler(ActividadTecla);
             //*****************************************************//
+            panelEstado.Dock = DockStyle.Top;
+            panelEstado.Height = 50;
+            panelEstado.BackColor = Color.FromArgb(18, 23, 37);
+            panelEstado.Padding = new Padding(10, 8, 10, 8);
+
+            tituloVida.AutoSize = true;
+            tituloVida.ForeColor = Color.LightGray;
+            tituloVida.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            tituloVida.Text = "INTEGRIDAD";
+            tituloVida.Location = new Point(10, 12);
+
+            barraVida.Style = ProgressBarStyle.Continuous;
+            barraVida.Maximum = vidaMaximaJugador;
+            barraVida.Value = vidaMaximaJugador;
+            barraVida.Size = new Size(160, 16);
+            barraVida.Location = new Point(10, 28);
+
+            label2.AutoSize = true;
+            label2.ForeColor = Color.LightGreen;
+            label2.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            label2.Location = new Point(barraVida.Right + 10, 12);
+
+            panelEstado.Controls.Add(tituloVida);
+            panelEstado.Controls.Add(barraVida);
+            panelEstado.Controls.Add(label2);
+
             contiene.Location = new Point(0, 0);
             contiene.Size = new Size(300, 420);
             contiene.Dock = DockStyle.Fill;
             contiene.BackColor = Color.Black;
             contiene.Image = CrearFondoEspacial(contiene.Width, contiene.Height);
+            Controls.Add(panelEstado);
             Controls.Add(contiene);
             contiene.Visible = true;
             //******Contenido del formulario*******//
             Random r = new Random();
             int aleatY = r.Next(250, 330);
             int aleatX = r.Next(50, 250);
-            CrearNave(navex, 0, 1, Color.SeaGreen, 20);
+            CrearNave(navex, 0, 1, Color.SeaGreen, vidaMaximaJugador);
             //ELEGIR NAVE DE SALIDA RIVAL
             Random sal = new Random();
             int sale = sal.Next(1, 3);
             CrearNave(naveRival, 180, sale, Color.DarkBlue, 50);
             //Modulo.Escenario(contiene, I);
             navex.Location = new Point(aleatX, aleatY);
+            ActualizarVidaJugador();
             IniciarAsteroides(6);
 
             tiempo = new System.Windows.Forms.Timer();
