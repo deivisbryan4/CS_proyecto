@@ -10,7 +10,7 @@ using System.Windows.Forms;
 
 namespace Juego_Aviones
 {
-    public partial class Form1 : Form
+    public partial class GameForm : Form
     {
         //************ VARIABLES GLOBALES *************
         private readonly PictureBox navex = new PictureBox();
@@ -550,13 +550,13 @@ namespace Juego_Aviones
         }
 
         //****ARGUMENTOS GENERADOS POR EL PROGRAMA*******//
-        public Form1()
+        public GameForm()
         {
             InitializeComponent();
             Iniciar();
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        private void GameForm_Load(object sender, EventArgs e)
         {
             Iniciar();
         }
@@ -565,9 +565,9 @@ namespace Juego_Aviones
         {
             this.SuspendLayout();
             this.ClientSize = new Size(345, 450);
-            this.Name = "Form1";
+            this.Name = "GameForm";
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.Load += Form1_Load;
+            this.Load += GameForm_Load;
             this.ResumeLayout(false);
         }
     }
