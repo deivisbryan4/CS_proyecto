@@ -55,6 +55,8 @@ namespace Juego_Aviones
         readonly List<PictureBox> asteroides = new List<PictureBox>();
         readonly List<PictureBox> enemigos = new List<PictureBox>();
         readonly List<PictureBox> disparosEnemigos = new List<PictureBox>();
+        readonly HashSet<PictureBox> enemigosEnPicado = new HashSet<PictureBox>();
+        readonly Dictionary<PictureBox, PointF> velocidadPicado = new Dictionary<PictureBox, PointF>();
         int nivelActual = 1;
         int puntaje = 0;
         int framesEscenario = 0;
@@ -214,6 +216,8 @@ namespace Juego_Aviones
                             {
                                 ((PictureBox)c).Dispose();
                                 enemigos.Remove(enemigo);
+                                enemigosEnPicado.Remove(enemigo);
+                                velocidadPicado.Remove(enemigo);
                                 enemigo.Dispose();
                                 puntaje += 8;
                                 ActualizarProgreso();
@@ -666,6 +670,11 @@ namespace Juego_Aviones
                 DispararEnemigos();
             }
 
+            if (framesEnemigos % 120 == 0)
+            {
+                LanzarPicadoGalaga();
+            }
+
             foreach (PictureBox ast in asteroides.ToList())
             {
                 ast.Top += 2 + nivelActual;
@@ -756,15 +765,32 @@ namespace Juego_Aviones
         {
             foreach (PictureBox enemigo in enemigos.ToList())
             {
-                double fase = (framesEnemigos + enemigo.Location.X) * 0.1;
-                int nuevoX = enemigo.Location.X + (int)(Math.Sin(fase) * 4);
-                nuevoX = Math.Max(0, Math.Min(contiene.Width - enemigo.Width, nuevoX));
-                enemigo.Location = new Point(nuevoX, enemigo.Location.Y + 2 + nivelActual);
+                if (enemigosEnPicado.Contains(enemigo))
+                {
+                    if (!velocidadPicado.TryGetValue(enemigo, out PointF velocidad))
+                    {
+                        enemigosEnPicado.Remove(enemigo);
+                        continue;
+                    }
+
+                    int nuevoX = (int)(enemigo.Location.X + velocidad.X);
+                    int nuevoY = (int)(enemigo.Location.Y + velocidad.Y);
+                    enemigo.Location = new Point(nuevoX, nuevoY);
+                }
+                else
+                {
+                    double fase = (framesEnemigos + enemigo.Location.X) * 0.1;
+                    int nuevoX = enemigo.Location.X + (int)(Math.Sin(fase) * 4);
+                    nuevoX = Math.Max(0, Math.Min(contiene.Width - enemigo.Width, nuevoX));
+                    enemigo.Location = new Point(nuevoX, enemigo.Location.Y + 2 + nivelActual);
+                }
 
                 Rectangle naveRect = new Rectangle(navex.Location, navex.Size);
                 Rectangle enemigoRect = new Rectangle(enemigo.Location, enemigo.Size);
                 if (naveRect.IntersectsWith(enemigoRect))
                 {
+                    velocidadPicado.Remove(enemigo);
+                    enemigosEnPicado.Remove(enemigo);
                     enemigos.Remove(enemigo);
                     enemigo.Dispose();
                     navex.Tag = int.Parse(navex.Tag.ToString()) - 8;
@@ -775,10 +801,41 @@ namespace Juego_Aviones
 
                 if (enemigo.Location.Y > contiene.Height)
                 {
+                    velocidadPicado.Remove(enemigo);
+                    enemigosEnPicado.Remove(enemigo);
                     enemigos.Remove(enemigo);
                     enemigo.Dispose();
                 }
             }
+        }
+
+        private void LanzarPicadoGalaga()
+        {
+            if (enemigos.Count == 0 || navex == null || navex.IsDisposed)
+            {
+                return;
+            }
+
+            PictureBox? candidato = enemigos.OrderBy(_ => random.Next()).FirstOrDefault(e => !enemigosEnPicado.Contains(e));
+            if (candidato == null)
+            {
+                return;
+            }
+
+            Point centroNave = new Point(navex.Left + (navex.Width / 2), navex.Top + (navex.Height / 2));
+            Point centroEnemigo = new Point(candidato.Left + (candidato.Width / 2), candidato.Top + (candidato.Height / 2));
+            float dx = centroNave.X - centroEnemigo.X;
+            float dy = centroNave.Y - centroEnemigo.Y;
+            float magnitud = (float)Math.Sqrt((dx * dx) + (dy * dy));
+            if (magnitud <= 0.01f)
+            {
+                return;
+            }
+
+            float velocidad = 4f + nivelActual;
+            PointF paso = new PointF((dx / magnitud) * velocidad, (dy / magnitud) * velocidad);
+            velocidadPicado[candidato] = paso;
+            enemigosEnPicado.Add(candidato);
         }
 
         private void DispararEnemigos()
@@ -846,7 +903,7 @@ namespace Juego_Aviones
 
         private void ActualizarProgreso()
         {
-            labelProgreso.Text = $"Nivel {nivelActual} - Puntaje {puntaje}";
+            labelProgreso.Text = $"Nivel {nivelActual} - Puntaje {puntaje} - Escenario {nivelActual}";
         }
         //****ARGUMENTOS GENERADOS POR EL PROGRAMA*******//
         public Form1()
