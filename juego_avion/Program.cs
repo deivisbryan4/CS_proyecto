@@ -556,11 +556,32 @@ namespace Juego_Aviones
         public Form1()
         {
             InitializeComponent();
+            Iniciar();
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
             Iniciar();
+        }
+
+        private void InitializeComponent()
+        {
+            this.SuspendLayout();
+            this.ClientSize = new Size(345, 450);
+            this.Name = "Form1";
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.Load += Form1_Load;
+            this.ResumeLayout(false);
+        }
+    }
+    internal static class Program
+    {
+        [STAThread]
+        private static void Main()
+        {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            Application.Run(new Form1());
         }
     }
 }
