@@ -13,10 +13,12 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("juego_avion")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+89728dba6070dfd3312068470d9152954c3a3107")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+06a98c36ee54a21780f52fefa40307b87b70b7da")]
 [assembly: System.Reflection.AssemblyProductAttribute("juego_avion")]
 [assembly: System.Reflection.AssemblyTitleAttribute("juego_avion")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+[assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
+[assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]
 
 // Generado por la clase WriteCodeFragment de MSBuild.
 

@@ -1,0 +1,15 @@
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\bin\Debug\net8.0-windows\juego_avion.exe
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\bin\Debug\net8.0-windows\juego_avion.deps.json
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\bin\Debug\net8.0-windows\juego_avion.runtimeconfig.json
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\bin\Debug\net8.0-windows\juego_avion.dll
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\bin\Debug\net8.0-windows\juego_avion.pdb
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\obj\Debug\net8.0-windows\juego_avion.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\obj\Debug\net8.0-windows\juego_avion.AssemblyInfoInputs.cache
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\obj\Debug\net8.0-windows\juego_avion.AssemblyInfo.cs
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\obj\Debug\net8.0-windows\juego_avion.csproj.CoreCompileInputs.cache
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\obj\Debug\net8.0-windows\juego_avion.sourcelink.json
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\obj\Debug\net8.0-windows\juego_avion.dll
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\obj\Debug\net8.0-windows\refint\juego_avion.dll
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\obj\Debug\net8.0-windows\juego_avion.pdb
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\obj\Debug\net8.0-windows\juego_avion.genruntimeconfig.cache
+C:\Users\deivi\RiderProjects\juego_avion\juego_avion\obj\Debug\net8.0-windows\ref\juego_avion.dll
