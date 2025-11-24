@@ -37,11 +37,14 @@ namespace Juego_Aviones
         PictureBox naveRival = new PictureBox();
         PictureBox contiene = new PictureBox();
         System.Windows.Forms.Timer tiempo;
+        System.Windows.Forms.Timer asteroideTimer;
         int Dispara = 0;
         bool flag = false;
         float angulo = 0;
         System.Windows.Forms.Label label1 =new System.Windows.Forms.Label();
         System.Windows.Forms.Label label2 = new System.Windows.Forms.Label();
+        List<PictureBox> asteroides = new List<PictureBox>();
+        Random generador = new Random();
 
         //************ DIAGRAMAR DEL MISIL ************//
         public void CrearMisil(int AngRotar, Color pintar, string nombre, int x, int y)
@@ -447,6 +450,107 @@ namespace Juego_Aviones
             return bmp;
         }
 
+        private Bitmap CrearFondoEspacial(int ancho, int alto)
+        {
+            Bitmap fondo = new Bitmap(ancho, alto);
+            using (Graphics grafico = Graphics.FromImage(fondo))
+            {
+                grafico.Clear(Color.Black);
+                int cantidadEstrellas = (ancho * alto) / 2500;
+                for (int i = 0; i < cantidadEstrellas; i++)
+                {
+                    int x = generador.Next(0, ancho);
+                    int y = generador.Next(0, alto);
+                    int radio = generador.Next(1, 3);
+                    Color colorEstrella = generador.Next(0, 2) == 0 ? Color.White : Color.LightGray;
+                    grafico.FillEllipse(new SolidBrush(colorEstrella), x, y, radio, radio);
+                }
+            }
+            return fondo;
+        }
+
+        private PictureBox CrearAsteroide()
+        {
+            PictureBox asteroide = new PictureBox();
+            int tamano = generador.Next(18, 28);
+            asteroide.Size = new Size(tamano, tamano);
+            asteroide.BackColor = Color.Transparent;
+            Bitmap imagenAsteroide = new Bitmap(tamano, tamano);
+            using (Graphics grafico = Graphics.FromImage(imagenAsteroide))
+            {
+                grafico.SmoothingMode = SmoothingMode.AntiAlias;
+                Point[] puntos =
+                {
+                    new Point(tamano / 2, 0),
+                    new Point(tamano - 3, tamano / 3),
+                    new Point(tamano - 2, (tamano * 2) / 3),
+                    new Point(tamano / 2, tamano - 1),
+                    new Point(2, (tamano * 2) / 3),
+                    new Point(2, tamano / 3)
+                };
+                grafico.FillPolygon(Brushes.DimGray, puntos);
+                grafico.DrawPolygon(new Pen(Color.Gray, 1), puntos);
+            }
+            asteroide.Image = imagenAsteroide;
+            asteroide.Tag = "Asteroide";
+            int posicionX = generador.Next(0, Math.Max(1, contiene.Width - tamano));
+            int posicionY = generador.Next(-400, -tamano);
+            asteroide.Location = new Point(posicionX, posicionY);
+            contiene.Controls.Add(asteroide);
+            asteroides.Add(asteroide);
+            asteroide.BringToFront();
+            return asteroide;
+        }
+
+        private void IniciarAsteroides(int cantidad)
+        {
+            asteroides.ForEach(a => a.Dispose());
+            asteroides.Clear();
+            for (int i = 0; i < cantidad; i++)
+            {
+                CrearAsteroide();
+            }
+
+            asteroideTimer = new System.Windows.Forms.Timer();
+            asteroideTimer.Interval = 20;
+            asteroideTimer.Tick += MoverAsteroides;
+            asteroideTimer.Start();
+        }
+
+        private void MoverAsteroides(object sender, EventArgs e)
+        {
+            if (navex.IsDisposed)
+                return;
+
+            Rectangle nave = navex.Bounds;
+            foreach (PictureBox asteroide in asteroides.ToList())
+            {
+                if (asteroide.IsDisposed)
+                    continue;
+
+                asteroide.Top += 3;
+                if (asteroide.Bottom >= contiene.Height)
+                {
+                    asteroide.Top = -asteroide.Height;
+                    asteroide.Left = generador.Next(0, Math.Max(1, contiene.Width - asteroide.Width));
+                }
+
+                if (asteroide.Bounds.IntersectsWith(nave))
+                {
+                    asteroide.Top = -asteroide.Height;
+                    asteroide.Left = generador.Next(0, Math.Max(1, contiene.Width - asteroide.Width));
+                    int vidaActual = int.Parse(navex.Tag.ToString());
+                    vidaActual = Math.Max(0, vidaActual - 2);
+                    navex.Tag = vidaActual;
+                    label2.Text = "Mi Nave : " + vidaActual.ToString();
+                    if (vidaActual <= 0)
+                    {
+                        navex.Dispose();
+                    }
+                }
+            }
+        }
+
         //***********MOVIMIENTO DEL TECLADO DEL USUARIO***********//
         public void ActividadTecla(object sender, KeyEventArgs e)
         {
@@ -541,9 +645,10 @@ namespace Juego_Aviones
             this.KeyDown += new KeyEventHandler(ActividadTecla);
             //*****************************************************//
             contiene.Location = new Point(0, 0);
-            contiene.BackColor = Color.AliceBlue;
             contiene.Size = new Size(300, 420);
             contiene.Dock = DockStyle.Fill;
+            contiene.BackColor = Color.Black;
+            contiene.Image = CrearFondoEspacial(contiene.Width, contiene.Height);
             Controls.Add(contiene);
             contiene.Visible = true;
             //******Contenido del formulario*******//
@@ -557,6 +662,7 @@ namespace Juego_Aviones
             CrearNave(naveRival, 180, sale, Color.DarkBlue, 50);
             //Modulo.Escenario(contiene, I);
             navex.Location = new Point(aleatX, aleatY);
+            IniciarAsteroides(6);
 
             tiempo = new System.Windows.Forms.Timer();
             tiempo.Interval = 1;
