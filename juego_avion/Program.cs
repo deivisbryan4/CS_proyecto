@@ -48,7 +48,9 @@ namespace Juego_Aviones
         PictureBox navex = new PictureBox();
         PictureBox naveRival = new PictureBox();
         List<PictureBox> enemigosPequenos = new List<PictureBox>();
+        Dictionary<PictureBox, EnemyMovementData> movimientoEnemigos = new Dictionary<PictureBox, EnemyMovementData>();
         PictureBox contiene = new PictureBox();
+        Panel hudPanel = new Panel();
         System.Windows.Forms.Timer tiempo;
         System.Windows.Forms.Timer asteroideTimer;
         System.Windows.Forms.Timer enemigoPequenoTimer;
@@ -62,6 +64,17 @@ namespace Juego_Aviones
         System.Windows.Forms.Label label3 = new System.Windows.Forms.Label();
         List<PictureBox> asteroides = new List<PictureBox>();
         Random generador = new Random();
+        List<Point> formacionSlots = new List<Point>();
+
+        private class EnemyMovementData
+        {
+            public PointF Start { get; set; }
+            public PointF Target { get; set; }
+            public float Progress { get; set; }
+            public bool EnFormacion { get; set; }
+            public int DireccionEntrada { get; set; }
+            public float PhaseOffset { get; set; }
+        }
 
         //************ DIAGRAMAR DEL MISIL ************//
         public void CrearMisil(int AngRotar, Color pintar, string nombre, int x, int y)
@@ -240,6 +253,7 @@ namespace Juego_Aviones
             else
             {
                 enemigosPequenos.Remove(enemigo);
+                movimientoEnemigos.Remove(enemigo);
                 enemigo.Dispose();
             }
         }
@@ -255,15 +269,37 @@ namespace Juego_Aviones
                     continue;
                 }
 
-                int desplazamientoHorizontal = (int)(Math.Sin((Environment.TickCount + enemigo.GetHashCode()) / 200.0) * 2);
-                enemigo.Left = Math.Max(0, Math.Min(contiene.Width - enemigo.Width, enemigo.Left + desplazamientoHorizontal));
-                enemigo.Top += 3;
-
-                if (enemigo.Top > contiene.Height)
+                if (!movimientoEnemigos.TryGetValue(enemigo, out EnemyMovementData datos))
                 {
                     paraEliminar.Add(enemigo);
+                    continue;
                 }
-                else if (navex.Visible && enemigo.Bounds.IntersectsWith(navex.Bounds))
+
+                if (!datos.EnFormacion)
+                {
+                    datos.Progress = Math.Min(1f, datos.Progress + 0.015f);
+                    float curva = (float)Math.Sin(datos.Progress * Math.PI) * 40 * datos.DireccionEntrada;
+                    float nuevoX = datos.Start.X + (datos.Target.X - datos.Start.X) * datos.Progress + curva * (1 - datos.Progress);
+                    float nuevoY = datos.Start.Y + (datos.Target.Y - datos.Start.Y) * datos.Progress;
+                    enemigo.Location = new Point((int)nuevoX, (int)nuevoY);
+
+                    if (datos.Progress >= 1f)
+                    {
+                        datos.EnFormacion = true;
+                        datos.Start = datos.Target;
+                    }
+                }
+                else
+                {
+                    double tiempoActual = Environment.TickCount + datos.PhaseOffset;
+                    int flotacionX = (int)(Math.Sin(tiempoActual / 300.0) * 10);
+                    int flotacionY = (int)(Math.Cos(tiempoActual / 500.0) * 4);
+                    int nuevoX = (int)datos.Target.X + flotacionX;
+                    int nuevoY = (int)datos.Target.Y + flotacionY;
+                    enemigo.Location = new Point(Math.Max(0, Math.Min(contiene.Width - enemigo.Width, nuevoX)), Math.Max(0, nuevoY));
+                }
+
+                if (navex.Visible && enemigo.Bounds.IntersectsWith(navex.Bounds))
                 {
                     var estadoJugador = navex.Tag as EntityState;
                     if (estadoJugador != null)
@@ -336,6 +372,8 @@ namespace Juego_Aviones
             AjustarDentroDeContenedor(naveRival);
             enemigosPequenos.ForEach(AjustarDentroDeContenedor);
             asteroides.ForEach(AjustarDentroDeContenedor);
+            PrepararFormacionSlots();
+            ReasignarSlotsExistentes();
         }
 
         private void AjustarDentroDeContenedor(PictureBox elemento)
@@ -369,20 +407,20 @@ namespace Juego_Aviones
             label2.ForeColor = Color.White;
             label3.ForeColor = Color.White;
 
-            label1.BackColor = Color.Black;
-            label2.BackColor = Color.Black;
-            label3.BackColor = Color.Black;
+            label1.BackColor = Color.Transparent;
+            label2.BackColor = Color.Transparent;
+            label3.BackColor = Color.Transparent;
 
-            label1.Location = new Point(10, 10);
-            label2.Location = new Point(10, 30);
-            label3.Location = new Point(10, 50);
+            label1.Location = new Point(10, 6);
+            label2.Location = new Point(130, 6);
+            label3.Location = new Point(250, 6);
 
-            label1.Parent = contiene;
-            label2.Parent = contiene;
-            label3.Parent = contiene;
-            label1.BringToFront();
-            label2.BringToFront();
-            label3.BringToFront();
+            hudPanel.Height = 28;
+            hudPanel.Dock = DockStyle.Top;
+            hudPanel.BackColor = Color.FromArgb(180, 0, 0, 0);
+            hudPanel.Controls.Add(label1);
+            hudPanel.Controls.Add(label2);
+            hudPanel.Controls.Add(label3);
         }
 
         //************ DIAGRAMAR NAVE***************//
@@ -660,6 +698,10 @@ namespace Juego_Aviones
 
         private PictureBox CrearEnemigoPequeno()
         {
+            Point? slotObjetivo = ObtenerSlotDisponible();
+            if (slotObjetivo == null)
+                return null;
+
             PictureBox enemigo = new PictureBox();
             enemigo.Size = new Size(32, 24);
             enemigo.BackColor = Color.Transparent;
@@ -667,18 +709,34 @@ namespace Juego_Aviones
             Bitmap imagen = new Bitmap(enemigo.Width, enemigo.Height);
             using (Graphics g = Graphics.FromImage(imagen))
             {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.FillPolygon(Brushes.CadetBlue, new[] { new Point(16, 0), new Point(31, 8), new Point(16, 15), new Point(1, 8) });
                 g.FillRectangle(Brushes.Aquamarine, new Rectangle(8, 8, 16, 8));
                 g.FillRectangle(Brushes.LightBlue, new Rectangle(12, 12, 8, 4));
+                g.DrawLine(new Pen(Color.Black, 2), new Point(0, 12), new Point(31, 12));
             }
 
             enemigo.Image = imagen;
             enemigo.Tag = new EntityState("EnemigoPequeno", 10);
-            int posX = generador.Next(0, Math.Max(1, contiene.Width - enemigo.Width));
-            enemigo.Location = new Point(posX, -enemigo.Height);
+
+            int direccionEntrada = generador.Next(0, 2) == 0 ? -1 : 1;
+            int inicioX = direccionEntrada == -1 ? -enemigo.Width - 20 : contiene.Width + 20;
+            int inicioY = generador.Next(40, 120);
+            enemigo.Location = new Point(inicioX, inicioY);
+
             enemigosPequenos.Add(enemigo);
             contiene.Controls.Add(enemigo);
             enemigo.BringToFront();
+
+            movimientoEnemigos[enemigo] = new EnemyMovementData
+            {
+                Start = new PointF(inicioX, inicioY),
+                Target = new PointF(slotObjetivo.Value.X, slotObjetivo.Value.Y),
+                Progress = 0f,
+                EnFormacion = false,
+                DireccionEntrada = direccionEntrada,
+                PhaseOffset = generador.Next(0, 800)
+            };
             return enemigo;
         }
 
@@ -701,17 +759,73 @@ namespace Juego_Aviones
         {
             enemigosPequenos.ForEach(e => e.Dispose());
             enemigosPequenos.Clear();
+            movimientoEnemigos.Clear();
+            PrepararFormacionSlots();
 
             enemigoPequenoTimer = new System.Windows.Forms.Timer();
             enemigoPequenoTimer.Interval = 1800;
             enemigoPequenoTimer.Tick += (s, e) =>
             {
-                if (enemigosPequenos.Count < 6)
+                if (enemigosPequenos.Count < formacionSlots.Count)
                 {
                     CrearEnemigoPequeno();
                 }
             };
             enemigoPequenoTimer.Start();
+        }
+
+        private void PrepararFormacionSlots()
+        {
+            formacionSlots.Clear();
+            int filas = 3;
+            int columnas = 6;
+            int margen = 20;
+            int espacioX = Math.Max(36, (contiene.Width - (margen * 2)) / Math.Max(1, columnas + 1));
+            int espacioY = 32;
+
+            for (int fila = 0; fila < filas; fila++)
+            {
+                for (int columna = 0; columna < columnas; columna++)
+                {
+                    int x = margen + espacioX * (columna + 1);
+                    int y = margen + espacioY * fila + 10;
+                    formacionSlots.Add(new Point(x, y));
+                }
+            }
+        }
+
+        private Point? ObtenerSlotDisponible()
+        {
+            HashSet<Point> ocupados = new HashSet<Point>(movimientoEnemigos.Values.Select(m => new Point((int)m.Target.X, (int)m.Target.Y)));
+            foreach (Point slot in formacionSlots)
+            {
+                if (!ocupados.Contains(slot))
+                    return slot;
+            }
+            return null;
+        }
+
+        private void ReasignarSlotsExistentes()
+        {
+            int indice = 0;
+            foreach (PictureBox enemigo in enemigosPequenos.ToList())
+            {
+                if (indice >= formacionSlots.Count)
+                    break;
+
+                if (!movimientoEnemigos.TryGetValue(enemigo, out EnemyMovementData datos))
+                    continue;
+
+                Point nuevoObjetivo = formacionSlots[indice];
+                datos.Target = nuevoObjetivo;
+                if (datos.EnFormacion)
+                {
+                    datos.Start = enemigo.Location;
+                    datos.Progress = 0f;
+                    datos.EnFormacion = false;
+                }
+                indice++;
+            }
         }
 
         private void MoverAsteroides(object sender, EventArgs e)
@@ -861,6 +975,7 @@ namespace Juego_Aviones
             contiene.BackColor = Color.Black;
             contiene.Image = CrearFondoEspacial(contiene.Width, contiene.Height);
             contiene.SizeChanged += Contenedor_SizeChanged;
+            Controls.Add(hudPanel);
             Controls.Add(contiene);
             contiene.Visible = true;
             //******Contenido del formulario*******//
