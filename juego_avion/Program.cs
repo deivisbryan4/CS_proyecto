@@ -32,17 +32,34 @@ namespace Juego_Aviones
 
     public partial class Form1 : Form
     {
+        private class EntityState
+        {
+            public string Tipo { get; set; }
+            public int Vida { get; set; }
+
+            public EntityState(string tipo, int vida)
+            {
+                Tipo = tipo;
+                Vida = vida;
+            }
+        }
+
         //************ VARIABLES GLOBALES *************
         PictureBox navex = new PictureBox();
         PictureBox naveRival = new PictureBox();
+        List<PictureBox> enemigosPequenos = new List<PictureBox>();
         PictureBox contiene = new PictureBox();
         System.Windows.Forms.Timer tiempo;
         System.Windows.Forms.Timer asteroideTimer;
+        System.Windows.Forms.Timer enemigoPequenoTimer;
         int Dispara = 0;
         bool flag = false;
         float angulo = 0;
-        System.Windows.Forms.Label label1 =new System.Windows.Forms.Label();
+        int vidasJugador = 3;
+        int tipoNaveActual = 1;
+        System.Windows.Forms.Label label1 = new System.Windows.Forms.Label();
         System.Windows.Forms.Label label2 = new System.Windows.Forms.Label();
+        System.Windows.Forms.Label label3 = new System.Windows.Forms.Label();
         List<PictureBox> asteroides = new List<PictureBox>();
         Random generador = new Random();
 
@@ -91,149 +108,285 @@ namespace Juego_Aviones
         //***************DESTRUCTOR DEL MISIL********************//
         private void ImpactarTick(object sender, EventArgs e)
         {
-            // VARIABLES LOCALES
-            int X = naveRival.Location.X;
-            int Y = naveRival.Location.Y;
-            int W = naveRival.Width;
-            int H = naveRival.Height;
-            int PH = 10;
-            int X2 = navex.Location.X;
-            int Y2 = navex.Location.Y;
-            int W2 = navex.Width;
-            int H2 = navex.Height;
-            int x = naveRival.Location.X;
-            int y = naveRival.Location.Y;
+            if (navex.IsDisposed)
+            {
+                tiempo.Stop();
+                return;
+            }
 
             Dispara++;
             // ACCION DE DISPARAR DEL RIVAL
-            if (Dispara == 100 && naveRival.Visible == true)
+            if (Dispara == 100 && naveRival.Visible)
             {
                 int xRival = naveRival.Location.X + (naveRival.Width / 2);
                 int yRival = naveRival.Location.Y + (naveRival.Height / 2);
-                CrearMisil(180, Color.OrangeRed, "Rival", xRival, yRival);
+                CrearMisil(180, Color.OrangeRed, "MisilEnemigo", xRival, yRival);
                 Dispara = 0;
             }
-            // MOVIMIENTO DE LA NAVE A DESTRUIR
-            if (flag == false)
+
+            MoverNaveRival();
+            MoverEnemigosPequenos();
+
+            List<PictureBox> paraEliminar = new List<PictureBox>();
+
+            foreach (PictureBox c in contiene.Controls.OfType<PictureBox>().ToList())
             {
-                if (contiene.Width == x + naveRival.Width)
+                EntityState estado = c.Tag as EntityState;
+                string nombre = c.Tag as string;
+
+                if (nombre == "MisilJugador")
+                {
+                    c.Top -= 10;
+                    if (c.Bottom <= 0)
+                    {
+                        paraEliminar.Add(c);
+                        continue;
+                    }
+
+                    foreach (PictureBox enemigo in ObtenerEnemigos().ToList())
+                    {
+                        if (c.Bounds.IntersectsWith(enemigo.Bounds))
+                        {
+                            var estadoEnemigo = enemigo.Tag as EntityState;
+                            if (estadoEnemigo != null)
+                            {
+                                estadoEnemigo.Vida -= estadoEnemigo.Tipo == "EnemigoGrande" ? 10 : 5;
+                                if (estadoEnemigo.Vida <= 0)
+                                {
+                                    EliminarEnemigo(enemigo);
+                                }
+                                ActualizarIndicadores();
+                            }
+                            paraEliminar.Add(c);
+                            break;
+                        }
+                    }
+                }
+                else if (nombre == "MisilEnemigo")
+                {
+                    c.Top += 7;
+                    if (c.Top >= contiene.Height)
+                    {
+                        paraEliminar.Add(c);
+                        continue;
+                    }
+
+                    if (navex.Visible && c.Bounds.IntersectsWith(navex.Bounds))
+                    {
+                        var estadoJugador = navex.Tag as EntityState;
+                        if (estadoJugador != null)
+                        {
+                            estadoJugador.Vida -= 5;
+                            ActualizarIndicadores();
+                            RevisarVidaJugador();
+                        }
+                        paraEliminar.Add(c);
+                    }
+                }
+            }
+
+            foreach (PictureBox elemento in paraEliminar)
+            {
+                elemento.Dispose();
+            }
+        }
+
+        private void MoverNaveRival()
+        {
+            if (naveRival.IsDisposed || !naveRival.Visible)
+                return;
+
+            int x = naveRival.Location.X;
+            int y = naveRival.Location.Y;
+
+            if (!flag)
+            {
+                if (contiene.Width <= x + naveRival.Width + 2)
                     flag = true;
                 x++;
             }
             else
             {
-                if (contiene.Location.X == x)
+                if (x <= 2)
                     flag = false;
                 x--;
             }
+
             naveRival.Location = new Point(x, y);
+        }
 
-            // ELIMINACION DEL MISIL Y DESCONTAR PUNTOS DE IMPACTO DE LA NAVE RIVAL
-            foreach (Control c in contiene.Controls)
+        private IEnumerable<PictureBox> ObtenerEnemigos()
+        {
+            if (naveRival != null && !naveRival.IsDisposed && naveRival.Visible)
+                yield return naveRival;
+
+            foreach (PictureBox e in enemigosPequenos.ToList())
             {
-                if (c is PictureBox)
+                if (e != null && !e.IsDisposed && e.Visible)
                 {
-                    int X1 = ((PictureBox)c).Location.X;
-                    int Y1 = ((PictureBox)c).Location.Y;
-                    int W1 = ((PictureBox)c).Width;
-                    int H1 = ((PictureBox)c).Height;
-                    string nombre = ((PictureBox)c).Tag.ToString();
-
-                    // ACTIVIDAD DE IMPACTO CON LA NAVE RIVAL
-                    if (X < X1 && X1 + W1 < X + W && Y < Y1 && Y1 + H1 < Y + H && nombre == "Misil")
-                    {
-                        if (X + PH < X1 && X1 + W1 < X + W - PH)
-                        {
-                            ((PictureBox)c).Dispose();
-                            naveRival.Tag = int.Parse(naveRival.Tag.ToString()) - 10;
-                        }
-                        else
-                        {
-                            ((PictureBox)c).Dispose();
-                            naveRival.Tag = int.Parse(naveRival.Tag.ToString()) - 1;
-                        }
-                        label1.Text = "Vida del Rival : " + naveRival.Tag.ToString();
-                        //tiempo.Stop();
-                    }
-                    else if (int.Parse(naveRival.Tag.ToString()) <= 0)
-                    {
-                        naveRival.Dispose();
-                        Bitmap NuevoImg = new Bitmap(contiene.Width, contiene.Height);
-                        Graphics flagImagen = Graphics.FromImage(NuevoImg);
-                        // Crear cadena para dibujar.
-                        String drawString = "Felicitaciones Ganaste_!";
-                        // Crear la fuente y el pincel.
-                        Font drawFont = new Font("Arial", 16);
-                        SolidBrush drawBrush = new SolidBrush(Color.Blue);
-                        Point drawPoint = new Point(40, 150);
-                        // Dibujar cadena en pantalla.
-                        flagImagen.DrawString(drawString, drawFont, drawBrush, drawPoint);
-                        contiene.Image = NuevoImg;
-                        tiempo.Stop();
-                    }
-
-                    // ACTIVIDAD DE IMPACTO CON MI NAVE
-                    if (X2 < X1 && X1 + W1 < X2 + W2 && Y2 < Y1 && Y1 + H1 < Y2 + H2 && nombre == "Rival")
-                    {
-                        if (X2 + PH < X1 && X1 + W1 < X2 + W2 - PH)
-                        {
-                            ((PictureBox)c).Dispose();
-                            navex.Tag = int.Parse(navex.Tag.ToString()) - 10;
-                        }
-                        else
-                        {
-                            ((PictureBox)c).Dispose();
-                            navex.Tag = int.Parse(navex.Tag.ToString()) - 1;
-                        }
-                        label2.Text = "Mi Nave : " + navex.Tag.ToString();
-                    }
-                    else if (int.Parse(navex.Tag.ToString()) <= 0)
-                    {
-                        navex.Dispose();
-                        Bitmap NuevoImg = new Bitmap(contiene.Width, contiene.Height);
-                        Graphics flagImagen = Graphics.FromImage(NuevoImg);
-                        // Crear cadena para dibujar.
-                        String drawString = "Perdiste el juego";
-                        // Crear la fuente y el pincel.
-                        Font drawFont = new Font("Arial", 16);
-                        SolidBrush drawBrush = new SolidBrush(Color.Red);
-                        Point drawPoint = new Point(70, 150);
-                        // Dibujar cadena en pantalla.
-                        flagImagen.DrawString(drawString, drawFont, drawBrush, drawPoint);
-                        contiene.Image = NuevoImg;
-                        tiempo.Stop();
-                    }
-
-                    if (((PictureBox)c).Location.Y <= 0 && nombre == "Misil")
-                    {
-                        ((PictureBox)c).Dispose();
-                    }
-                    if (((PictureBox)c).Location.Y >= contiene.Height && nombre == "Rival")
-                    {
-                        ((PictureBox)c).Dispose();
-                    }
-                    if (nombre == "Misil")
-                    {
-                        ((PictureBox)c).Top -= 10;
-                    }
-                    if (nombre == "Rival")
-                    {
-                        ((PictureBox)c).Top += 10;
-                    }
-                    if (W >= X2 && H >= Y2 && W2 >= X && H2 >= Y)
-                    {
-                        naveRival.Dispose();
-                        navex.Dispose();
-                    }
+                    yield return e;
                 }
-                else
-                    tiempo.Stop();
-
             }
         }
 
+        private void EliminarEnemigo(PictureBox enemigo)
+        {
+            if (enemigo == naveRival)
+            {
+                naveRival.Dispose();
+                MostrarMensajeFinal("Felicitaciones Ganaste_!");
+                tiempo.Stop();
+            }
+            else
+            {
+                enemigosPequenos.Remove(enemigo);
+                enemigo.Dispose();
+            }
+        }
+
+        private void MoverEnemigosPequenos()
+        {
+            List<PictureBox> paraEliminar = new List<PictureBox>();
+            foreach (PictureBox enemigo in enemigosPequenos.ToList())
+            {
+                if (enemigo.IsDisposed)
+                {
+                    paraEliminar.Add(enemigo);
+                    continue;
+                }
+
+                int desplazamientoHorizontal = (int)(Math.Sin((Environment.TickCount + enemigo.GetHashCode()) / 200.0) * 2);
+                enemigo.Left = Math.Max(0, Math.Min(contiene.Width - enemigo.Width, enemigo.Left + desplazamientoHorizontal));
+                enemigo.Top += 3;
+
+                if (enemigo.Top > contiene.Height)
+                {
+                    paraEliminar.Add(enemigo);
+                }
+                else if (navex.Visible && enemigo.Bounds.IntersectsWith(navex.Bounds))
+                {
+                    var estadoJugador = navex.Tag as EntityState;
+                    if (estadoJugador != null)
+                    {
+                        estadoJugador.Vida -= 5;
+                        ActualizarIndicadores();
+                        RevisarVidaJugador();
+                    }
+                    paraEliminar.Add(enemigo);
+                }
+            }
+
+            foreach (PictureBox enemigo in paraEliminar)
+            {
+                enemigosPequenos.Remove(enemigo);
+                enemigo.Dispose();
+            }
+        }
+
+        private void RevisarVidaJugador()
+        {
+            var estadoJugador = navex.Tag as EntityState;
+            if (estadoJugador == null)
+                return;
+
+            if (estadoJugador.Vida <= 0)
+            {
+                vidasJugador--;
+                if (vidasJugador > 0)
+                {
+                    estadoJugador.Vida = 30;
+                    navex.Location = new Point(Math.Max(10, contiene.Width / 2), Math.Max(10, contiene.Height - 120));
+                    ActualizarIndicadores();
+                }
+                else
+                {
+                    navex.Dispose();
+                    MostrarMensajeFinal("Perdiste el juego");
+                    tiempo.Stop();
+                }
+            }
+        }
+
+        private void MostrarMensajeFinal(string texto)
+        {
+            Bitmap NuevoImg = new Bitmap(contiene.Width, contiene.Height);
+            Graphics flagImagen = Graphics.FromImage(NuevoImg);
+            Font drawFont = new Font("Arial", 16);
+            SolidBrush drawBrush = new SolidBrush(Color.White);
+            SizeF tamTexto = flagImagen.MeasureString(texto, drawFont);
+            Point drawPoint = new Point((int)((contiene.Width - tamTexto.Width) / 2), (int)((contiene.Height - tamTexto.Height) / 2));
+            flagImagen.DrawString(texto, drawFont, drawBrush, drawPoint);
+            contiene.Image = NuevoImg;
+        }
+
+        private void ActualizarIndicadores()
+        {
+            var estadoRival = naveRival.Tag as EntityState;
+            var estadoJugador = navex.Tag as EntityState;
+
+            label1.Text = "Vida del Rival : " + (estadoRival != null ? estadoRival.Vida.ToString() : "0");
+            label2.Text = "Mi Nave HP : " + (estadoJugador != null ? estadoJugador.Vida.ToString() : "0");
+            label3.Text = "Vidas : " + vidasJugador.ToString();
+        }
+
+        private void Contenedor_SizeChanged(object sender, EventArgs e)
+        {
+            contiene.Image = CrearFondoEspacial(contiene.Width, contiene.Height);
+            AjustarDentroDeContenedor(navex);
+            AjustarDentroDeContenedor(naveRival);
+            enemigosPequenos.ForEach(AjustarDentroDeContenedor);
+            asteroides.ForEach(AjustarDentroDeContenedor);
+        }
+
+        private void AjustarDentroDeContenedor(PictureBox elemento)
+        {
+            if (elemento == null || elemento.IsDisposed)
+                return;
+
+            int nuevoX = Math.Max(0, Math.Min(contiene.Width - elemento.Width, elemento.Left));
+            int nuevoY = Math.Max(0, Math.Min(contiene.Height - elemento.Height, elemento.Top));
+            elemento.Location = new Point(nuevoX, nuevoY);
+        }
+
+        private void CambiarNave(int nuevoTipo)
+        {
+            tipoNaveActual = nuevoTipo;
+            var estadoJugador = navex.Tag as EntityState;
+            int vida = estadoJugador != null ? estadoJugador.Vida : 30;
+            Point posicionActual = navex.Location;
+            CrearNave(navex, 0, tipoNaveActual, Color.SeaGreen, vida, "Jugador");
+            navex.Location = posicionActual;
+            ActualizarIndicadores();
+        }
+
+        private void ConfigurarIndicadores()
+        {
+            label1.AutoSize = true;
+            label2.AutoSize = true;
+            label3.AutoSize = true;
+
+            label1.ForeColor = Color.White;
+            label2.ForeColor = Color.White;
+            label3.ForeColor = Color.White;
+
+            label1.BackColor = Color.Black;
+            label2.BackColor = Color.Black;
+            label3.BackColor = Color.Black;
+
+            label1.Location = new Point(10, 10);
+            label2.Location = new Point(10, 30);
+            label3.Location = new Point(10, 50);
+
+            label1.Parent = contiene;
+            label2.Parent = contiene;
+            label3.Parent = contiene;
+            label1.BringToFront();
+            label2.BringToFront();
+            label3.BringToFront();
+        }
+
         //************ DIAGRAMAR NAVE***************//
-        public void CrearNave(PictureBox Avion, int AngRotar, int Tipox, Color Pintar, int Vida)
+        public void CrearNave(PictureBox Avion, int AngRotar, int Tipox, Color Pintar, int Vida, string tipo)
         {
             int largoN = 0;
             int anchoN = 0;
@@ -372,9 +525,12 @@ namespace Juego_Aviones
             Avion.Region = new Region(ObjGrafico);
 
             //***********INSERTAR LA NAVE AL CONTENEDOR************//
-            contiene.Controls.Add(Avion);
+            if (!contiene.Controls.Contains(Avion))
+            {
+                contiene.Controls.Add(Avion);
+            }
             NaveCorre(Avion, Tipox, AngRotar);
-            Avion.Tag = Vida;
+            Avion.Tag = new EntityState(tipo, Vida);
             Avion.Visible = true;
         }
 
@@ -502,6 +658,30 @@ namespace Juego_Aviones
             return asteroide;
         }
 
+        private PictureBox CrearEnemigoPequeno()
+        {
+            PictureBox enemigo = new PictureBox();
+            enemigo.Size = new Size(32, 24);
+            enemigo.BackColor = Color.Transparent;
+
+            Bitmap imagen = new Bitmap(enemigo.Width, enemigo.Height);
+            using (Graphics g = Graphics.FromImage(imagen))
+            {
+                g.FillPolygon(Brushes.CadetBlue, new[] { new Point(16, 0), new Point(31, 8), new Point(16, 15), new Point(1, 8) });
+                g.FillRectangle(Brushes.Aquamarine, new Rectangle(8, 8, 16, 8));
+                g.FillRectangle(Brushes.LightBlue, new Rectangle(12, 12, 8, 4));
+            }
+
+            enemigo.Image = imagen;
+            enemigo.Tag = new EntityState("EnemigoPequeno", 10);
+            int posX = generador.Next(0, Math.Max(1, contiene.Width - enemigo.Width));
+            enemigo.Location = new Point(posX, -enemigo.Height);
+            enemigosPequenos.Add(enemigo);
+            contiene.Controls.Add(enemigo);
+            enemigo.BringToFront();
+            return enemigo;
+        }
+
         private void IniciarAsteroides(int cantidad)
         {
             asteroides.ForEach(a => a.Dispose());
@@ -515,6 +695,23 @@ namespace Juego_Aviones
             asteroideTimer.Interval = 20;
             asteroideTimer.Tick += MoverAsteroides;
             asteroideTimer.Start();
+        }
+
+        private void IniciarEnemigosPequenos()
+        {
+            enemigosPequenos.ForEach(e => e.Dispose());
+            enemigosPequenos.Clear();
+
+            enemigoPequenoTimer = new System.Windows.Forms.Timer();
+            enemigoPequenoTimer.Interval = 1800;
+            enemigoPequenoTimer.Tick += (s, e) =>
+            {
+                if (enemigosPequenos.Count < 6)
+                {
+                    CrearEnemigoPequeno();
+                }
+            };
+            enemigoPequenoTimer.Start();
         }
 
         private void MoverAsteroides(object sender, EventArgs e)
@@ -539,13 +736,12 @@ namespace Juego_Aviones
                 {
                     asteroide.Top = -asteroide.Height;
                     asteroide.Left = generador.Next(0, Math.Max(1, contiene.Width - asteroide.Width));
-                    int vidaActual = int.Parse(navex.Tag.ToString());
-                    vidaActual = Math.Max(0, vidaActual - 2);
-                    navex.Tag = vidaActual;
-                    label2.Text = "Mi Nave : " + vidaActual.ToString();
-                    if (vidaActual <= 0)
+                    var estadoJugador = navex.Tag as EntityState;
+                    if (estadoJugador != null)
                     {
-                        navex.Dispose();
+                        estadoJugador.Vida = Math.Max(0, estadoJugador.Vida - 2);
+                        ActualizarIndicadores();
+                        RevisarVidaJugador();
                     }
                 }
             }
@@ -618,7 +814,7 @@ namespace Juego_Aviones
                         tiempo.Start();
                         int x = navex.Location.X + (navex.Width / 2);
                         int y = navex.Location.Y + (navex.Height / 2);
-                        CrearMisil(0, Color.DarkOrange, "Misil", x, y);
+                        CrearMisil(0, Color.DarkOrange, "MisilJugador", x, y);
                         break;
                     }
                 case 32: // Espacio - disparo
@@ -626,7 +822,22 @@ namespace Juego_Aviones
                         tiempo.Start();
                         int x = navex.Location.X + (navex.Width / 2);
                         int y = navex.Location.Y + (navex.Height / 2);
-                        CrearMisil(0, Color.DarkOrange, "Misil", x, y);
+                        CrearMisil(0, Color.DarkOrange, "MisilJugador", x, y);
+                        break;
+                    }
+                case 49: // 1 - cambiar nave
+                    {
+                        CambiarNave(1);
+                        break;
+                    }
+                case 50: // 2 - cambiar nave
+                    {
+                        CambiarNave(2);
+                        break;
+                    }
+                case 51: // 3 - cambiar nave
+                    {
+                        CambiarNave(3);
                         break;
                     }
             }
@@ -649,25 +860,30 @@ namespace Juego_Aviones
             contiene.Dock = DockStyle.Fill;
             contiene.BackColor = Color.Black;
             contiene.Image = CrearFondoEspacial(contiene.Width, contiene.Height);
+            contiene.SizeChanged += Contenedor_SizeChanged;
             Controls.Add(contiene);
             contiene.Visible = true;
             //******Contenido del formulario*******//
             Random r = new Random();
             int aleatY = r.Next(250, 330);
             int aleatX = r.Next(50, 250);
-            CrearNave(navex, 0, 1, Color.SeaGreen, 20);
+            CrearNave(navex, 0, tipoNaveActual, Color.SeaGreen, 30, "Jugador");
             //ELEGIR NAVE DE SALIDA RIVAL
             Random sal = new Random();
             int sale = sal.Next(1, 3);
-            CrearNave(naveRival, 180, sale, Color.DarkBlue, 50);
+            CrearNave(naveRival, 180, sale, Color.DarkBlue, 60, "EnemigoGrande");
             //Modulo.Escenario(contiene, I);
             navex.Location = new Point(aleatX, aleatY);
             IniciarAsteroides(6);
+            IniciarEnemigosPequenos();
 
             tiempo = new System.Windows.Forms.Timer();
             tiempo.Interval = 1;
             tiempo.Enabled = true;
             tiempo.Tick += new EventHandler(ImpactarTick);
+
+            ConfigurarIndicadores();
+            ActualizarIndicadores();
 
         }
         //****ARGUMENTOS GENERADOS POR EL PROGRAMA*******//
