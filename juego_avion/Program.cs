@@ -49,6 +49,7 @@ namespace Juego_Aviones
         PictureBox naveRival = new PictureBox();
         List<PictureBox> enemigosPequenos = new List<PictureBox>();
         Dictionary<PictureBox, EnemyMovementData> movimientoEnemigos = new Dictionary<PictureBox, EnemyMovementData>();
+        Dictionary<Point, EnemyStyle> estilosPorSlot = new Dictionary<Point, EnemyStyle>();
         PictureBox contiene = new PictureBox();
         Panel hudPanel = new Panel();
         System.Windows.Forms.Timer tiempo;
@@ -65,6 +66,16 @@ namespace Juego_Aviones
         List<PictureBox> asteroides = new List<PictureBox>();
         Random generador = new Random();
         List<Point> formacionSlots = new List<Point>();
+        int formacionFilas = 4;
+        int formacionColumnas = 8;
+
+        private class EnemyStyle
+        {
+            public Color Primario { get; set; }
+            public Color Secundario { get; set; }
+            public Color Detalle { get; set; }
+            public Color Contorno { get; set; }
+        }
 
         private class EnemyMovementData
         {
@@ -74,6 +85,7 @@ namespace Juego_Aviones
             public bool EnFormacion { get; set; }
             public int DireccionEntrada { get; set; }
             public float PhaseOffset { get; set; }
+            public EnemyStyle Estilo { get; set; }
         }
 
         //************ DIAGRAMAR DEL MISIL ************//
@@ -698,25 +710,19 @@ namespace Juego_Aviones
 
         private PictureBox CrearEnemigoPequeno()
         {
-            Point? slotObjetivo = ObtenerSlotDisponible();
-            if (slotObjetivo == null)
+            int? indiceSlot = ObtenerIndiceSlotDisponible();
+            if (indiceSlot == null)
                 return null;
+
+            Point slotObjetivo = formacionSlots[indiceSlot.Value];
+            EnemyStyle estilo = estilosPorSlot.ContainsKey(slotObjetivo)
+                ? estilosPorSlot[slotObjetivo]
+                : CrearEstiloFila(indiceSlot.Value / formacionColumnas);
 
             PictureBox enemigo = new PictureBox();
             enemigo.Size = new Size(32, 24);
             enemigo.BackColor = Color.Transparent;
-
-            Bitmap imagen = new Bitmap(enemigo.Width, enemigo.Height);
-            using (Graphics g = Graphics.FromImage(imagen))
-            {
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.FillPolygon(Brushes.CadetBlue, new[] { new Point(16, 0), new Point(31, 8), new Point(16, 15), new Point(1, 8) });
-                g.FillRectangle(Brushes.Aquamarine, new Rectangle(8, 8, 16, 8));
-                g.FillRectangle(Brushes.LightBlue, new Rectangle(12, 12, 8, 4));
-                g.DrawLine(new Pen(Color.Black, 2), new Point(0, 12), new Point(31, 12));
-            }
-
-            enemigo.Image = imagen;
+            enemigo.Image = DibujarAlienGalaga(estilo, enemigo.Size);
             enemigo.Tag = new EntityState("EnemigoPequeno", 10);
 
             int direccionEntrada = generador.Next(0, 2) == 0 ? -1 : 1;
@@ -731,11 +737,12 @@ namespace Juego_Aviones
             movimientoEnemigos[enemigo] = new EnemyMovementData
             {
                 Start = new PointF(inicioX, inicioY),
-                Target = new PointF(slotObjetivo.Value.X, slotObjetivo.Value.Y),
+                Target = new PointF(slotObjetivo.X, slotObjetivo.Y),
                 Progress = 0f,
                 EnFormacion = false,
                 DireccionEntrada = direccionEntrada,
-                PhaseOffset = generador.Next(0, 800)
+                PhaseOffset = generador.Next(0, 800),
+                Estilo = estilo
             };
             return enemigo;
         }
@@ -777,30 +784,34 @@ namespace Juego_Aviones
         private void PrepararFormacionSlots()
         {
             formacionSlots.Clear();
-            int filas = 3;
-            int columnas = 6;
+            estilosPorSlot.Clear();
+            int filas = formacionFilas;
+            int columnas = formacionColumnas;
             int margen = 20;
             int espacioX = Math.Max(36, (contiene.Width - (margen * 2)) / Math.Max(1, columnas + 1));
-            int espacioY = 32;
+            int espacioY = 30;
 
             for (int fila = 0; fila < filas; fila++)
             {
+                EnemyStyle estiloFila = CrearEstiloFila(fila);
                 for (int columna = 0; columna < columnas; columna++)
                 {
                     int x = margen + espacioX * (columna + 1);
                     int y = margen + espacioY * fila + 10;
-                    formacionSlots.Add(new Point(x, y));
+                    Point slot = new Point(x, y);
+                    formacionSlots.Add(slot);
+                    estilosPorSlot[slot] = estiloFila;
                 }
             }
         }
 
-        private Point? ObtenerSlotDisponible()
+        private int? ObtenerIndiceSlotDisponible()
         {
             HashSet<Point> ocupados = new HashSet<Point>(movimientoEnemigos.Values.Select(m => new Point((int)m.Target.X, (int)m.Target.Y)));
-            foreach (Point slot in formacionSlots)
+            for (int i = 0; i < formacionSlots.Count; i++)
             {
-                if (!ocupados.Contains(slot))
-                    return slot;
+                if (!ocupados.Contains(formacionSlots[i]))
+                    return i;
             }
             return null;
         }
@@ -826,6 +837,111 @@ namespace Juego_Aviones
                 }
                 indice++;
             }
+        }
+
+        private EnemyStyle CrearEstiloFila(int fila)
+        {
+            int filaNormalizada = fila % 4;
+            if (filaNormalizada == 0)
+            {
+                return new EnemyStyle
+                {
+                    Primario = Color.MediumSeaGreen,
+                    Secundario = Color.PaleGreen,
+                    Detalle = Color.LightYellow,
+                    Contorno = Color.DarkGreen
+                };
+            }
+            if (filaNormalizada == 1)
+            {
+                return new EnemyStyle
+                {
+                    Primario = Color.MediumVioletRed,
+                    Secundario = Color.Pink,
+                    Detalle = Color.MistyRose,
+                    Contorno = Color.DarkMagenta
+                };
+            }
+            if (filaNormalizada == 2)
+            {
+                return new EnemyStyle
+                {
+                    Primario = Color.DodgerBlue,
+                    Secundario = Color.DeepSkyBlue,
+                    Detalle = Color.LightCyan,
+                    Contorno = Color.MidnightBlue
+                };
+            }
+
+            return new EnemyStyle
+            {
+                Primario = Color.MediumSlateBlue,
+                Secundario = Color.Plum,
+                Detalle = Color.Lavender,
+                Contorno = Color.Indigo
+            };
+        }
+
+        private Bitmap DibujarAlienGalaga(EnemyStyle estilo, Size tamano)
+        {
+            Bitmap bmp = new Bitmap(tamano.Width, tamano.Height);
+            using (Graphics g = Graphics.FromImage(bmp))
+            using (Brush primario = new SolidBrush(estilo.Primario))
+            using (Brush secundario = new SolidBrush(estilo.Secundario))
+            using (Brush detalle = new SolidBrush(estilo.Detalle))
+            using (Pen contorno = new Pen(estilo.Contorno, 1))
+            {
+                g.Clear(Color.Transparent);
+                g.PixelOffsetMode = PixelOffsetMode.Half;
+                int celda = Math.Max(2, tamano.Width / 16);
+                int centro = tamano.Width / 2;
+                int inicioY = 2;
+
+                int[][] plantilla = new int[][]
+                {
+                    new[] { 0, 1, 1, 0, 0, 1, 1, 0 },
+                    new[] { 1, 1, 1, 1, 1, 1, 1, 1 },
+                    new[] { 1, 2, 1, 1, 1, 1, 2, 1 },
+                    new[] { 1, 2, 2, 2, 2, 2, 2, 1 },
+                    new[] { 1, 2, 2, 2, 2, 2, 2, 1 },
+                    new[] { 0, 1, 2, 2, 2, 2, 1, 0 },
+                    new[] { 0, 1, 1, 2, 2, 1, 1, 0 },
+                    new[] { 0, 0, 1, 1, 1, 1, 0, 0 },
+                    new[] { 0, 1, 1, 0, 0, 1, 1, 0 },
+                    new[] { 1, 1, 0, 0, 0, 0, 1, 1 },
+                    new[] { 1, 0, 0, 0, 0, 0, 0, 1 },
+                    new[] { 1, 0, 0, 0, 0, 0, 0, 1 },
+                };
+
+                for (int fila = 0; fila < plantilla.Length; fila++)
+                {
+                    int y = inicioY + fila * celda;
+                    for (int col = 0; col < plantilla[fila].Length; col++)
+                    {
+                        Brush relleno = plantilla[fila][col] == 1 ? primario : plantilla[fila][col] == 2 ? secundario : null;
+
+                        if (relleno != null)
+                        {
+                            int xIzquierda = centro - celda * (col + 1);
+                            int xDerecha = centro + celda * col;
+                            Rectangle izquierda = new Rectangle(xIzquierda, y, celda, celda);
+                            Rectangle derecha = new Rectangle(xDerecha, y, celda, celda);
+                            g.FillRectangle(relleno, izquierda);
+                            g.FillRectangle(relleno, derecha);
+                            g.DrawRectangle(contorno, izquierda);
+                            g.DrawRectangle(contorno, derecha);
+                        }
+                    }
+                }
+
+                int ojoY = inicioY + celda * 3;
+                g.FillRectangle(detalle, centro - celda * 2, ojoY, celda, celda);
+                g.FillRectangle(detalle, centro + celda, ojoY, celda, celda);
+                g.DrawRectangle(contorno, centro - celda * 2, ojoY, celda, celda);
+                g.DrawRectangle(contorno, centro + celda, ojoY, celda, celda);
+            }
+
+            return bmp;
         }
 
         private void MoverAsteroides(object sender, EventArgs e)
