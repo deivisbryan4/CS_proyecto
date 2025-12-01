@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("juego_avion")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+06a98c36ee54a21780f52fefa40307b87b70b7da")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f3f166735aa8b8f95657555e5b48a5c581e67730")]
 [assembly: System.Reflection.AssemblyProductAttribute("juego_avion")]
 [assembly: System.Reflection.AssemblyTitleAttribute("juego_avion")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
